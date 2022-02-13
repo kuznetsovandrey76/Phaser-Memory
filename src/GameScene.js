@@ -14,10 +14,17 @@ class GameScene extends Phaser.Scene {
         `assets/sprites/card${cardNumber}.png`
       );
     }
+
+    this.load.audio("card", "assets/sounds/card.mp3");
+    this.load.audio("theme", "assets/sounds/theme.mp3");
+    this.load.audio("complete", "assets/sounds/complete.mp3");
+    this.load.audio("success", "assets/sounds/success.mp3");
+    this.load.audio("timeout", "assets/sounds/timeout.mp3");
   }
 
   create() {
     console.log("START create");
+    this.createSounds();
     this.createBackground();
     this.createText();
     this.createCards();
@@ -29,16 +36,38 @@ class GameScene extends Phaser.Scene {
     this.openCard = null;
     this.openCardsCount = 0;
     this.initCards();
+    this.showCards();
   }
 
   initCards() {
     const positions = this.getCardPositions();
 
     this.cards.forEach((card) => {
-      let { x, y } = positions.pop();
+      card.init(positions.pop());
+    });
+  }
 
-      card.close();
-      card.setPosition(x, y);
+  showCards() {
+    this.cards.forEach((card) => {
+      card.move({
+        x: card.position.x,
+        y: card.position.y,
+        delay: card.position.delay,
+      });
+    });
+  }
+
+  createSounds() {
+    this.sounds = {
+      card: this.sound.add("card"),
+      theme: this.sound.add("theme"),
+      complete: this.sound.add("complete"),
+      success: this.sound.add("success"),
+      timeout: this.sound.add("timeout"),
+    };
+
+    this.sounds.theme.play({
+      volume: 0.1,
     });
   }
 
@@ -69,6 +98,8 @@ class GameScene extends Phaser.Scene {
 
   onCardClicked(pointer, card) {
     if (card.opened) return false;
+
+    this.sounds.card.play({ volume: 0.5 });
 
     const { openCard } = this;
     if (openCard) {
@@ -102,9 +133,12 @@ class GameScene extends Phaser.Scene {
       (this.sys.game.config.height - cardHeight * config.rows) / 2 +
       cardHeight / 2;
 
+    let id = 0;
     for (let row = 0; row < config.rows; row++) {
       for (let col = 0; col < config.cols; col++) {
+        ++id;
         positions.push({
+          delay: id * 100,
           x: offsetX + col * cardWidth,
           y: offsetY + row * cardHeight,
         });

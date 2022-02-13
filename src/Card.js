@@ -9,6 +9,24 @@ class Card extends Phaser.GameObjects.Sprite {
     // this.flip();
   }
 
+  init(position) {
+    this.position = position;
+    this.close();
+    this.setPosition(-this.width, -this.height);
+  }
+
+  move(params) {
+    this.scene.tweens.add({
+      targets: this,
+      x: params.x,
+      y: params.y,
+      delay: params.delay,
+      easy: "Linear",
+      duration: 150,
+      onComplete: () => this.show(),
+    });
+  }
+
   flip() {
     this.scene.tweens.add({
       targets: this,

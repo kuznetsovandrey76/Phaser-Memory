@@ -23,7 +23,6 @@ class GameScene extends Phaser.Scene {
   }
 
   create() {
-    console.log("START create");
     this.timeout = config.timeout;
     this.createTimer();
     this.createSounds();
@@ -34,48 +33,39 @@ class GameScene extends Phaser.Scene {
   }
 
   start() {
-    console.log("START game");
+    this.initCardPositions();
     this.timeout = config.timeout;
     this.openCard = null;
     this.openCardsCount = 0;
+    this.timer.paused = false;
     this.initCards();
     this.showCards();
   }
 
-  onTimerTick() {
-    this.timeoutText.setText(`Text: ${this.timeout}`);
-
-    if (this.timeout <= 0) {
-      this.start();
-    } else {
-      --this.timeout;
-    }
+  restart() {
+    let count = 0;
+    let onCardMoveComplete = () => {
+      ++count;
+      if (count >= this.cards.length) {
+        this.start();
+      }
+    };
+    this.cards.forEach((card) => {
+      card.move({
+        x: this.sys.game.config.width + card.width,
+        y: this.sys.game.config.height + card.height,
+        delay: card.position.delay,
+        callback: onCardMoveComplete,
+      });
+    });
   }
 
   createTimer() {
-    this.time.addEvent({
+    this.timer = this.time.addEvent({
       delay: 1000,
       callback: this.onTimerTick,
       callbackScope: this,
       loop: true,
-    });
-  }
-
-  initCards() {
-    const positions = this.getCardPositions();
-
-    this.cards.forEach((card) => {
-      card.init(positions.pop());
-    });
-  }
-
-  showCards() {
-    this.cards.forEach((card) => {
-      card.move({
-        x: card.position.x,
-        y: card.position.y,
-        delay: card.position.delay,
-      });
     });
   }
 
@@ -88,9 +78,7 @@ class GameScene extends Phaser.Scene {
       timeout: this.sound.add("timeout"),
     };
 
-    this.sounds.theme.play({
-      volume: 0.1,
-    });
+    this.sounds.theme.play({ volume: 0.01 });
   }
 
   createText() {
@@ -106,26 +94,44 @@ class GameScene extends Phaser.Scene {
 
   createCards() {
     this.cards = [];
-    const positions = this.getCardPositions();
-    Phaser.Utils.Array.Shuffle(positions);
 
     for (let value of config.cards) {
       for (let i = 0; i < 2; i++) {
-        this.cards.push(new Card(this, value, positions.pop()));
+        this.cards.push(new Card(this, value));
       }
     }
 
     this.input.on("gameobjectdown", this.onCardClicked, this);
   }
 
-  onCardClicked(pointer, card) {
+  initCards() {
+    const positions = Phaser.Utils.Array.Shuffle(this.positions);
+
+    this.cards.forEach((card) => {
+      card.init(positions.pop());
+    });
+  }
+
+  showCards() {
+    this.cards.forEach((card) => {
+      card.depth = card.position.delay;
+      card.move({
+        x: card.position.x,
+        y: card.position.y,
+        delay: card.position.delay,
+      });
+    });
+  }
+
+  onCardClicked(_, card) {
     if (card.opened) return false;
 
-    this.sounds.card.play({ volume: 0.5 });
+    this.sounds.card.play({ volume: 0.1 });
 
     const { openCard } = this;
     if (openCard) {
       if (openCard.value === card.value) {
+        this.sounds.success.play({ volume: 0.1 });
         this.openCard = null;
         ++this.openCardsCount;
       } else {
@@ -136,13 +142,16 @@ class GameScene extends Phaser.Scene {
       this.openCard = card;
     }
 
-    card.open();
-    if (this.openCardsCount === config.cards.length) {
-      this.start();
-    }
+    card.open(() => {
+      if (this.openCardsCount === config.cards.length) {
+        this.sounds.complete.play({ volume: 0.1 });
+
+        this.restart();
+      }
+    });
   }
 
-  getCardPositions() {
+  initCardPositions() {
     let positions = [];
     let cardTexture = this.textures.get("card").getSourceImage();
 
@@ -166,6 +175,19 @@ class GameScene extends Phaser.Scene {
         });
       }
     }
-    return Phaser.Utils.Array.Shuffle(positions);
+
+    this.positions = positions;
+  }
+
+  onTimerTick() {
+    this.timeoutText.setText(`Text: ${this.timeout}`);
+
+    if (this.timeout <= 0) {
+      this.timer.paused = true;
+      this.sounds.timeout.play({ volume: 0.1 });
+      this.restart();
+    } else {
+      --this.timeout;
+    }
   }
 }
